@@ -16,6 +16,7 @@ const error = require('../lib/error')
 const CUSTOMS_METHOD_NAMES = [
   'check',
   'checkAuthenticated',
+  'checkIpOnly',
   'flag',
   'reset'
 ]
@@ -25,6 +26,7 @@ const DB_METHOD_NAMES = [
   'accountEmails',
   'accountResetToken',
   'consumeUnblockCode',
+  'consumeSigninCode',
   'createAccount',
   'createDevice',
   'createEmailBounce',
@@ -114,7 +116,7 @@ const PUSH_METHOD_NAMES = [
 module.exports = {
   generateMetricsContext: generateMetricsContext,
   mockBounces: mockObject(['check']),
-  mockCustoms: mockObject(CUSTOMS_METHOD_NAMES),
+  mockCustoms: mockCustoms,
   mockDB: mockDB,
   mockDevices: mockDevices,
   mockLog: mockLog,
@@ -123,6 +125,24 @@ module.exports = {
   mockMetricsContext: mockMetricsContext,
   mockPush: mockObject(PUSH_METHOD_NAMES),
   mockRequest: mockRequest
+}
+
+function mockCustoms (errors) {
+  errors = errors || {}
+
+  return mockObject(CUSTOMS_METHOD_NAMES)({
+    checkAuthenticated: optionallyThrow(errors, 'checkAuthenticated'),
+    checkIpOnly: optionallyThrow(errors, 'checkIpOnly')
+  })
+}
+
+function optionallyThrow (errors, methodName) {
+  return sinon.spy(() => {
+    if (errors[methodName]) {
+      return P.reject(errors[methodName])
+    }
+    return P.resolve()
+  })
 }
 
 function mockDB (data, errors) {
@@ -158,6 +178,7 @@ function mockDB (data, errors) {
         }
       ])
     }),
+    consumeSigninCode: optionallyThrow(errors, 'consumeSigninCode'),
     createAccount: sinon.spy(() => {
       return P.resolve({
         uid: data.uid,
@@ -266,12 +287,7 @@ function mockDB (data, errors) {
         uaDeviceType: data.uaDeviceType
       })
     }),
-    verifyTokens: sinon.spy(() => {
-      if (errors.verifyTokens) {
-        return P.reject(errors.verifyTokens)
-      }
-      return P.resolve()
-    })
+    verifyTokens: optionallyThrow(errors, 'verifyTokens')
   })
 }
 
